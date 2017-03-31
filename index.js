@@ -1,4 +1,10 @@
-function transport (path, query, queryParams, token) {
+function transport (path, query, queryParams, token, vars) {
+
+  var object = {
+    query: query
+  };
+  object[vars] = queryParams;
+
   return fetch(path, {
     method: 'POST',
     headers: {
@@ -6,10 +12,7 @@ function transport (path, query, queryParams, token) {
       'content-type': 'application/json',
       'authorization': token
     },
-    body: JSON.stringify({
-      query,
-      queryParams
-    })
+    body: JSON.stringify(object)
   })
   .then((response) => {
     console.log(response);
@@ -23,8 +26,10 @@ function transport (path, query, queryParams, token) {
   });
 }
 
-export default function reachGraphQL (path, query, queryParams = {}, token) {
- return transport(path, query, queryParams, token).then((res) => {
-   return res;
- });
+export default function build(vars) {
+  return function (path, query, queryParams = {}, token) {
+   return transport(path, query, queryParams, token, vars).then((res) => {
+     return res;
+   });
+  }
 }
