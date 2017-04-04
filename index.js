@@ -1,4 +1,10 @@
-function transport (path, query, queryParams, token) {
+export default function justGraphql(path, query, queryParams = {}, token, onSuccess = false, onFailure = false) {
+ return transport(path, query, queryParams, token, onSuccess, onFailure).then((res) => {
+   return res;
+ });
+}
+
+function transport(path, query, queryParams, token, onSuccess, onFailure) {
   return fetch(path, {
     method: 'POST',
     headers: {
@@ -12,7 +18,12 @@ function transport (path, query, queryParams, token) {
     })
   })
   .then((response) => {
-    console.log(response);
+    if (onSuccess && (response.status >= 200 && response.status <= 300)) {
+      onSuccess(response);
+    } else if (onFailure && response,status >= 500) {
+      onFailure(response);
+    }
+
     return response.json();
   })
   .then((responseBody) => {
@@ -21,10 +32,4 @@ function transport (path, query, queryParams, token) {
     }
     return responseBody.data;
   });
-}
-
-export default function reachGraphQL (path, query, queryParams = {}, token) {
- return transport(path, query, queryParams, token).then((res) => {
-   return res;
- });
 }
