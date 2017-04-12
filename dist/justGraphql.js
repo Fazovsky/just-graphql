@@ -76,13 +76,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var token = arguments[3];
 	  var onSuccess = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : false;
 	  var onFailure = arguments.length > 5 && arguments[5] !== undefined ? arguments[5] : false;
+	  var tokenReplacer = arguments.length > 6 && arguments[6] !== undefined ? arguments[6] : false;
 
-	  return transport(path, query, queryParams, token, onSuccess, onFailure).then(function (res) {
+	  return transport(path, query, queryParams, token, onSuccess, onFailure, tokenReplacer).then(function (res) {
 	    return res;
 	  });
 	}
 
-	function transport(path, query, queryParams, token, onSuccess, onFailure) {
+	function transport(path, query, queryParams, token, onSuccess, onFailure, tokenReplacer) {
+	  function handleStatus(response) {
+
+	    if (onSuccess) {
+	      onSuccess(response);
+	    }
+
+	    return response.json();
+	  }
+
+	  function returnResponseBody(responseBody) {
+	    if (responseBody && responseBody.errors) {
+	      throw new Error(responseBody.errors);
+	    }
+	    return responseBody.data;
+	  }
+
 	  return fetch(path, {
 	    method: 'POST',
 	    headers: {
@@ -94,18 +111,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	      query: query
 	    }, queryParams))
 	  }).then(function (response) {
-	    if (onSuccess && response.status >= 200 && response.status <= 300) {
-	      onSuccess(response);
-	    } else if (onFailure && response, status >= 500) {
-	      onFailure(response);
-	    }
-
-	    return response.json();
+	    return handleStatus(response);
 	  }).then(function (responseBody) {
-	    if (responseBody && responseBody.errors) {
-	      throw new Error(responseBody.errors);
+	    return returnResponseBody(responseBody);
+	  }).catch(function (err) {
+	    if (tokenReplacer) {
+	      return tokenReplacer().then(function (token) {
+
+	        return transport(path, query, queryParams, 'Bearer ' + token, onSuccess, onFailure).then(function (res) {
+	          return res;
+	        });;
+	      }).catch(function (err) {
+	        if (onFailure) {
+	          onFailure(err);
+	        }
+
+	        throw new Error(err);
+	      });
+	    } else {
+	      if (onFailure) {
+	        onFailure(err);
+	      }
+
+	      throw new Error(err);
 	    }
-	    return responseBody.data;
 	  });
 	}
 

@@ -1,10 +1,26 @@
-export default function justGraphql(path, query, queryParams = {}, token, onSuccess = false, onFailure = false) {
- return transport(path, query, queryParams, token, onSuccess, onFailure).then((res) => {
+export default function justGraphql(path, query, queryParams = {}, token, onSuccess = false, onFailure = false, tokenReplacer = false) {
+ return transport(path, query, queryParams, token, onSuccess, onFailure, tokenReplacer).then((res) => {
    return res;
  });
 }
 
-function transport(path, query, queryParams, token, onSuccess, onFailure) {
+function transport(path, query, queryParams, token, onSuccess, onFailure, tokenReplacer) {
+  function handleStatus(response) {
+
+    if (onSuccess) {
+      onSuccess(response)
+    }
+
+    return response.json();
+  }
+
+  function returnResponseBody(responseBody) {
+    if (responseBody && responseBody.errors) {
+      throw new Error(responseBody.errors);
+    }
+    return responseBody.data;
+  }
+
   return fetch(path, {
     method: 'POST',
     headers: {
@@ -17,19 +33,30 @@ function transport(path, query, queryParams, token, onSuccess, onFailure) {
       ...queryParams
     })
   })
-  .then((response) => {
-    if (onSuccess && (response.status >= 200 && response.status <= 300)) {
-      onSuccess(response);
-    } else if (onFailure && response,status >= 500) {
-      onFailure(response);
-    }
+  .then((response) => handleStatus(response))
+  .then((responseBody) => returnResponseBody(responseBody))
+  .catch((err) => {
+    if (tokenReplacer) {
+      return tokenReplacer()
+        .then(function (token) {
 
-    return response.json();
-  })
-  .then((responseBody) => {
-    if (responseBody && responseBody.errors) {
-      throw new Error(responseBody.errors);
+          return transport(path, query, queryParams, 'Bearer ' + token, onSuccess, onFailure).then((res) => {
+            return res;
+          });;
+        })
+        .catch((err) => {
+  				if (onFailure) {
+  					onFailure(err);
+          }
+
+          throw new Error(err);
+  			});
+    } else {
+      if (onFailure) {
+        onFailure(err);
+      }
+
+      throw new Error(err);
     }
-    return responseBody.data;
   });
 }
